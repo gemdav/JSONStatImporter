@@ -11,6 +11,9 @@ package jsonstatimporter.actions;
 
 import com.mendix.systemwideinterfaces.core.IContext;
 import com.mendix.webui.CustomJavaAction;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import java.util.Iterator;
 
 public class JAVA_Convert_JSONStatString_To_ImportableString extends CustomJavaAction<java.lang.String>
 {
@@ -29,7 +32,80 @@ public class JAVA_Convert_JSONStatString_To_ImportableString extends CustomJavaA
 	public java.lang.String executeAction() throws Exception
 	{
 		// BEGIN USER CODE
-		throw new com.mendix.systemwideinterfaces.MendixRuntimeException("Java action was not implemented");
+		JSONObject jsonstat = new JSONObject(this.JSONStatString);
+		JSONObject importable = new JSONObject();
+
+		// meta
+
+		importable.put("version", jsonstat.getString("version"));
+		importable.put("class", jsonstat.getString("class"));
+		importable.put("label", jsonstat.getString("label"));
+		importable.put("source", jsonstat.getString("source"));
+		importable.put("updated", jsonstat.getString("updated"));
+
+		// value
+
+		Object value = jsonstat.get("value");
+		if (value instanceof JSONArray) {
+			// value has structure [1, null, 7, 28, 3]
+			importable.put("values", restructureJSONArray((JSONArray) value));
+		}
+		if (value instanceof JSONObject) {
+			// value has structure {"1": 1, "2": 5, "5": 7, "6": 34}
+			importable.put("values", restructureJSONObject((JSONObject) value));
+		}
+
+		// status
+
+		Object status = jsonstat.get("status");
+		if (status instanceof JSONArray) {
+			// status has structure ["a", "m", "b", "a", "a"]
+			importable.put("statuses", restructureJSONArray((JSONArray) status));
+		}
+		if (status instanceof JSONObject) {
+			// status has structure {"1": "s", "2": "a", "5": "a", "6": "g"}
+			importable.put("statuses", restructureJSONObject((JSONObject) status));
+		}
+
+		// dimension
+
+		JSONObject statDimensions = jsonstat.getJSONObject("dimension");
+		JSONArray statDimensionIDs = jsonstat.getJSONArray("id");
+		JSONArray statDimensionSizes = jsonstat.getJSONArray("size");
+
+		JSONArray importableDimensions = new JSONArray();
+
+		for (int i = 0; i < statDimensionIDs.length(); i++) {
+			JSONObject dimension = new JSONObject();
+			
+			String id = statDimensionIDs.getString(i);
+			dimension.put("key", id);
+			int size = statDimensionSizes.getInt(i);
+			dimension.put("size", size);
+			dimension.put("index", i);
+
+			JSONObject statDimension = statDimensions.getJSONObject(id);
+
+			String label = statDimension.getString("label");
+			dimension.put("label", label);
+			JSONObject categoryIndices = statDimension.getJSONObject("category").getJSONObject("index");
+			JSONObject categoryLabels = statDimension.getJSONObject("category").getJSONObject("label");
+			Iterator<String> iter = categoryIndices.keys();
+			JSONArray categories = new JSONArray();
+			while ( iter.hasNext() ) {
+				String key = iter.next();
+				JSONObject category = new JSONObject();
+				category.put("key", key);
+				category.put("index", categoryIndices.get(key));
+				category.put("label", categoryLabels.get(key));
+				categories.put(category);
+			}
+			dimension.put("categories", categories);
+			importableDimensions.put(dimension);
+		}
+		importable.put("dimensions", importableDimensions);
+
+		return importable.toString();
 		// END USER CODE
 	}
 
@@ -44,5 +120,41 @@ public class JAVA_Convert_JSONStatString_To_ImportableString extends CustomJavaA
 	}
 
 	// BEGIN EXTRA CODE
+
+	/**
+	 * Takes a JSONArray and parses it to a JSONArray of JSONObjects with key and value as attributes
+	 * 
+	 * @param array the JSONArray to be restructured
+	 * @return the restructured array
+	 */
+	private static JSONArray restructureJSONArray(JSONArray array) {
+		JSONArray restructuredArray = new JSONArray();
+		for (int i = 0; i < array.length(); i++) {
+			JSONObject item = new JSONObject();
+			item.put("index", i);
+			item.put("value", array.get(i));
+			restructuredArray.put(item);
+		}
+		return restructuredArray;
+	}
+
+	/**
+	 * Takes a JSONObject and parses it to a JSONArray of JSONObjects with key and value as attributes
+	 * 
+	 * @param array the JSONObject to be restructured
+	 * @return the restructured array
+	 */
+	private static JSONArray restructureJSONObject(JSONObject object) {
+		JSONArray restructuredArray = new JSONArray();
+		Iterator<String> iter = object.keys();
+		while ( iter.hasNext() ) {
+			String key = iter.next();
+			JSONObject item = new JSONObject();
+			item.put("index", Integer.parseInt(key));
+			item.put("value", object.get(key));
+			restructuredArray.put(item);
+		}
+		return restructuredArray;
+	}
 	// END EXTRA CODE
 }

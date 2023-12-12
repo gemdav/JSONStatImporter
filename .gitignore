@@ -19,7 +19,6 @@
 /build/
 /deployment/
 /project-settings.user.json
-/userlib/
 /theme-cache/
 
 /javascriptsource/communitycommons
@@ -41,3 +40,5 @@
 /nativemobile/builds/
 /*.launch
 /modeler-merge-marker
+/jsonstatimporter.mpr.bak
+/jsonstatimporter.mpr.lock
